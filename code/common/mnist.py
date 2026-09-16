@@ -29,7 +29,12 @@ def _synthetic(n_train, n_test, dim=784, classes=10, seed=0):
     return xa, ya, xb, yb
 
 
-def load_mnist(n_train=2000, n_test=500, allow_synthetic=True):
+def load_mnist(n_train=2000, n_test=500, allow_synthetic=True, offline=False):
+    """Load MNIST, or deterministic synthetic data when ``offline`` is true."""
+    if offline:
+        print("[mnist] offline mode: using synthetic data")
+        return _synthetic(n_train, n_test)
+
     os.makedirs(CACHE_DIR, exist_ok=True)
     try:
         import torchvision
