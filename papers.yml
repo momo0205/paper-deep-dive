@@ -1,0 +1,40 @@
+papers:
+  - slug: resnet
+    title: Deep Residual Learning for Image Recognition
+    authors:
+      - Kaiming He
+      - Xiangyu Zhang
+      - Shaoqing Ren
+      - Jian Sun
+    arxiv_id: "1512.03385"
+    version: v1
+    abstract_url: https://arxiv.org/abs/1512.03385v1
+    pdf_url: https://arxiv.org/pdf/1512.03385v1
+    sha256: 1e0651b6810ecba34a3dbc5b5b0209226f889004607c1f203540a48d64e5a93a
+  - slug: transformer
+    title: Attention Is All You Need
+    authors:
+      - Ashish Vaswani
+      - Noam Shazeer
+      - Niki Parmar
+      - Jakob Uszkoreit
+      - Llion Jones
+      - Aidan N. Gomez
+      - Lukasz Kaiser
+      - Illia Polosukhin
+    arxiv_id: "1706.03762"
+    version: v7
+    abstract_url: https://arxiv.org/abs/1706.03762v7
+    pdf_url: https://arxiv.org/pdf/1706.03762v7
+    sha256: bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697
+  - slug: ddpm
+    title: Denoising Diffusion Probabilistic Models
+    authors:
+      - Jonathan Ho
+      - Ajay Jain
+      - Pieter Abbeel
+    arxiv_id: "2006.11239"
+    version: v2
+    abstract_url: https://arxiv.org/abs/2006.11239v2
+    pdf_url: https://arxiv.org/pdf/2006.11239v2
+    sha256: aee5e07a802e8dfd2a386374c94fd61d1d056cb7e1e0fec4f28e8120ff5d8505
