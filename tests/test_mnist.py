@@ -1,4 +1,7 @@
 import builtins
+import socket
+import urllib.request
+
 import numpy as np
 import pytest
 import common.mnist as mnist
@@ -21,8 +24,15 @@ def test_load_mnist_offline_skips_network_sources_and_cache_creation(monkeypatch
     def fail_if_cache_is_created(*args, **kwargs):
         pytest.fail("offline loader created a dataset cache")
 
+    def fail_if_network_is_used(*args, **kwargs):
+        pytest.fail("offline loader attempted a network connection")
+
     monkeypatch.setattr(builtins, "__import__", fail_if_dataset_client_is_imported)
     monkeypatch.setattr(mnist.os, "makedirs", fail_if_cache_is_created)
+    monkeypatch.setattr(socket, "create_connection", fail_if_network_is_used)
+    monkeypatch.setattr(socket.socket, "connect", fail_if_network_is_used)
+    monkeypatch.setattr(urllib.request, "urlopen", fail_if_network_is_used)
+    monkeypatch.setattr(urllib.request, "urlretrieve", fail_if_network_is_used)
 
     x_tr, y_tr, x_te, y_te = mnist.load_mnist(
         n_train=100, n_test=20, offline=True,
