@@ -1,7 +1,8 @@
 from pathlib import Path
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-FORBIDDEN_SUFFIXES = {".pdf", ".pt", ".pth", ".ckpt", ".pyc"}
+FORBIDDEN_SUFFIXES = {".pdf", ".png", ".pt", ".pth", ".ckpt", ".pyc"}
 FORBIDDEN_PARTS = {".pytest_cache", "__pycache__", "data"}
 FORBIDDEN_TEXT = (
     "/Users/" "chenmao/",
@@ -20,18 +21,45 @@ REQUIRED_FILES = {
 
 
 def public_files():
-    return [path for path in ROOT.rglob("*") if path.is_file() and ".git" not in path.parts]
+    result = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    return [ROOT / path for path in result.stdout.decode().split("\0") if path]
 
 
-def test_public_tree_excludes_private_or_generated_artifacts():
+def artifact_violations(root, files):
     violations = []
-    for path in public_files():
-        relative = path.relative_to(ROOT)
+    for path in files:
+        relative = path.relative_to(root)
         if path.suffix.lower() in FORBIDDEN_SUFFIXES or FORBIDDEN_PARTS.intersection(relative.parts):
             violations.append(str(relative))
         if path.name == "input.txt":
             violations.append(str(relative))
-    assert violations == []
+    return violations
+
+
+def test_public_tree_excludes_private_or_generated_artifacts():
+    assert artifact_violations(ROOT, public_files()) == []
+
+
+def test_public_tree_excludes_generated_png_artifacts(tmp_path):
+    artifact = tmp_path / "code" / "resnet" / "output.png"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_bytes(b"generated plot")
+
+    assert artifact_violations(tmp_path, [artifact]) == ["code/resnet/output.png"]
+
+
+def test_generated_png_artifacts_are_ignored_by_git():
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", "code/resnet/output.png"],
+        cwd=ROOT,
+    )
+
+    assert result.returncode == 0
 
 
 def test_required_learning_material_is_present():

@@ -1,15 +1,16 @@
 """MNIST 加载器，三级降级保证离线可跑。
 
 优先级：
-1. torchvision（首次运行下载到系统临时目录）
+1. torchvision（首次运行下载到 code/data/mnist）
 2. sklearn fetch_openml（需联网）
 3. 合成高斯团数据（纯离线兜底，会打印警告）
 """
 import os
-import tempfile
 import numpy as np
 
-CACHE_DIR = os.path.join(tempfile.gettempdir(), "paper-deep-dive", "mnist")
+CACHE_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "mnist"
+)
 
 
 def _synthetic(n_train, n_test, dim=784, classes=10, seed=0):

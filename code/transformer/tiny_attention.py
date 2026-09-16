@@ -5,6 +5,8 @@
 Run:  python3 transformer/tiny_attention.py
 """
 import math
+import os
+import sys
 import urllib.request
 
 import torch
@@ -13,15 +15,21 @@ import torch.nn.functional as F
 
 DATA_URL = ("https://raw.githubusercontent.com/karpathy/char-rnn/"
             "master/data/tinyshakespeare/input.txt")
+CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "input.txt")
 FALLBACK = ("to be or not to be that is the question\n"
             "whether tis nobler in the mind to suffer\n") * 200
 
 
 def load_text():
+    if os.path.exists(CACHE):
+        with open(CACHE, "r", encoding="utf-8") as f:
+            return f.read()
     try:
-        with urllib.request.urlopen(DATA_URL, timeout=10) as response:
+        os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+        urllib.request.urlretrieve(DATA_URL, CACHE)
+        with open(CACHE, "r", encoding="utf-8") as f:
             print("[text] downloaded Tiny Shakespeare")
-            return response.read().decode("utf-8")
+            return f.read()
     except Exception as e:
         print(f"[text] download failed ({type(e).__name__}), using fallback text")
         return FALLBACK
