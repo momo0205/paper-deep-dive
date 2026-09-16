@@ -4,13 +4,17 @@
 
 Run:  python3 resnet/plain_vs_residual.py
 """
+import argparse
 import os
 import sys
 
 import numpy as np
 
+if "--smoke" in sys.argv:
+    sys.dont_write_bytecode = True
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common.mnist import load_mnist
+from common.mnist import _synthetic, load_mnist
 
 
 def sigmoid(z):
@@ -101,8 +105,11 @@ class DeepMLP:
         return grads
 
 
-def train(residual, steps=500, batch=64, lr=0.1, seed=0):
-    x_tr, y_tr, x_te, y_te = load_mnist(n_train=6000, n_test=1000)
+def train(residual, steps=500, batch=64, lr=0.1, seed=0, data=None):
+    if data is None:
+        x_tr, y_tr, x_te, y_te = load_mnist(n_train=6000, n_test=1000)
+    else:
+        x_tr, y_tr, x_te, y_te = data
     net = DeepMLP(residual=residual, seed=seed)
     rng = np.random.default_rng(seed)
     losses, g0 = [], []
@@ -125,14 +132,33 @@ def train(residual, steps=500, batch=64, lr=0.1, seed=0):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--smoke", action="store_true",
+                        help="run a small deterministic forward/backward demo")
+    parser.add_argument("--output-dir", default=None,
+                        help="directory for generated plots")
+    parser.add_argument("--offline", action="store_true",
+                        help="use deterministic synthetic data without network access")
+    args = parser.parse_args()
+
+    smoke = args.smoke
+    if args.offline:
+        data = _synthetic(n_train=64 if smoke else 6000,
+                          n_test=16 if smoke else 1000, seed=0)
+    else:
+        data = None
+    steps = 3 if smoke else 500
+    batch = 8 if smoke else 64
     result = {}
     for name, res in [("plain", False), ("residual", True)]:
-        net, losses, g0 = train(res)
+        net, losses, g0 = train(res, steps=steps, batch=batch, data=data)
         result[name] = (losses, g0)
         print(f"[{name:8s}] loss {losses[0]:.4f} -> {losses[-1]:.4f} | "
-              f"mean |grad layer-0| = {np.mean(g0[10:]):.3e}")
-    g_plain = np.mean(result["plain"][1][10:])
-    g_res = np.mean(result["residual"][1][10:])
+              f"mean |grad layer-0| = {np.mean(g0[10:] if len(g0) > 10 else g0):.3e}")
+    g_plain = np.mean(result["plain"][1][10:] if len(result["plain"][1]) > 10
+                      else result["plain"][1])
+    g_res = np.mean(result["residual"][1][10:] if len(result["residual"][1]) > 10
+                    else result["residual"][1])
     print(f"\n浅层梯度范数比 residual/plain = {g_res / (g_plain + 1e-30):.3e}")
     print("结论：plain 网络浅层梯度趋近于 0（梯度消失），残差连接保住了梯度通路。")
     try:
@@ -149,7 +175,11 @@ def main():
         for a in ax:
             a.legend()
             a.grid(alpha=0.3)
-        out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output.png")
+        output_dir = args.output_dir or os.path.dirname(os.path.abspath(__file__))
+        os.makedirs(output_dir, exist_ok=True)
+        if args.output_dir:
+            os.environ["MPLCONFIGDIR"] = output_dir
+        out = os.path.join(output_dir, "output.png")
         fig.tight_layout()
         fig.savefig(out, dpi=120)
         print(f"图已保存: {out}")

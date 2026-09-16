@@ -5,6 +5,7 @@
 Run:  python3 ddpm/simple_ddpm.py
 """
 import math
+import argparse
 import os
 import sys
 
@@ -12,8 +13,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+if "--smoke" in sys.argv:
+    sys.dont_write_bytecode = True
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common.mnist import load_mnist
+from common.mnist import _synthetic, load_mnist
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -108,15 +112,30 @@ class Diffusion:
 
 
 def main():
-    torch.manual_seed(0)
-    x_tr, _, _, _ = load_mnist(n_train=8000, n_test=100)
-    x = torch.tensor(x_tr[:8000]).reshape(-1, 1, 28, 28)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--smoke", action="store_true",
+                        help="run a small deterministic train-and-sample demo")
+    parser.add_argument("--output-dir", default=None,
+                        help="directory for generated samples")
+    parser.add_argument("--offline", action="store_true",
+                        help="use deterministic synthetic data without network access")
+    args = parser.parse_args()
 
-    diff = Diffusion(T=100)
-    model = TinyUNet()
+    torch.manual_seed(0)
+    if args.offline:
+        x_tr, _, _, _ = _synthetic(
+            n_train=8 if args.smoke else 8000, n_test=1 if args.smoke else 100,
+            seed=0,
+        )
+    else:
+        x_tr, _, _, _ = load_mnist(n_train=8000, n_test=100)
+    x = torch.tensor(x_tr).reshape(-1, 1, 28, 28)
+
+    diff = Diffusion(T=8 if args.smoke else 100)
+    model = TinyUNet(base=4, t_dim=16) if args.smoke else TinyUNet()
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    steps, batch = 800, 64
+    steps, batch = (1, 2) if args.smoke else (800, 64)
     for step in range(1, steps + 1):
         idx = torch.randint(0, len(x), (batch,))
         loss = diff.loss(model, x[idx])
@@ -127,23 +146,32 @@ def main():
             print(f"step {step:4d}  mse {loss.item():.4f}")
 
     model.eval()
-    samples = diff.sample(model, 16).clamp(-1, 1)
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples.png")
+    samples = diff.sample(model, 1 if args.smoke else 16).clamp(-1, 1)
+    if args.smoke:
+        print(f"sample shape: {tuple(samples.shape)}")
+    output_dir = args.output_dir or os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(output_dir, exist_ok=True)
+    if args.output_dir:
+        os.environ["MPLCONFIGDIR"] = output_dir
+    out = os.path.join(output_dir, "samples.png")
     try:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         grid = samples.squeeze(1).cpu().numpy()
-        fig, axes = plt.subplots(4, 4, figsize=(5, 5))
+        ncols = min(4, len(grid))
+        nrows = math.ceil(len(grid) / ncols)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(5, 5), squeeze=False)
         for i, ax in enumerate(axes.flat):
-            ax.imshow((grid[i] + 1) / 2, cmap="gray")
+            if i < len(grid):
+                ax.imshow((grid[i] + 1) / 2, cmap="gray")
             ax.axis("off")
         fig.tight_layout()
         fig.savefig(out, dpi=120)
         print(f"生成样本已保存: {out}")
     except Exception as e:
         print(f"[plot skipped] {type(e).__name__}: {e}")
-        torch.save(samples, os.path.join(os.path.dirname(out), "samples.pt"))
+        torch.save(samples, os.path.join(output_dir, "samples.pt"))
 
 
 if __name__ == "__main__":

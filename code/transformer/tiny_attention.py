@@ -5,6 +5,7 @@
 Run:  python3 transformer/tiny_attention.py
 """
 import math
+import argparse
 import os
 import sys
 import urllib.request
@@ -20,7 +21,10 @@ FALLBACK = ("to be or not to be that is the question\n"
             "whether tis nobler in the mind to suffer\n") * 200
 
 
-def load_text():
+def load_text(offline=False):
+    if offline:
+        print("[text] offline mode, using fallback text")
+        return FALLBACK
     if os.path.exists(CACHE):
         with open(CACHE, "r", encoding="utf-8") as f:
             return f.read()
@@ -125,18 +129,34 @@ def get_batch(data, block_size, batch, rng):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--smoke", action="store_true",
+                        help="run a small deterministic forward/backward demo")
+    parser.add_argument("--output-dir", default=None,
+                        help="reserved output directory for generated artifacts")
+    parser.add_argument("--offline", action="store_true",
+                        help="use bundled fallback text without network access")
+    args = parser.parse_args()
+
     torch.manual_seed(0)
-    text = load_text()
+    text = load_text(offline=args.offline)
     tok = CharTokenizer(text)
     data = torch.tensor(tok.encode(text), dtype=torch.long)
     n = int(0.9 * len(data))
     train_data = data[:n]
 
-    model = TinyTransformer(tok.vocab_size)
+    block_size = 16 if args.smoke else 32
+    batch = 4 if args.smoke else 32
+    model = TinyTransformer(
+        tok.vocab_size,
+        n_embd=32 if args.smoke else 64,
+        block_size=block_size,
+        n_layer=1 if args.smoke else 2,
+    )
     opt = torch.optim.AdamW(model.parameters(), lr=3e-3)
     rng = torch.Generator().manual_seed(0)
 
-    steps, block_size, batch = 500, 32, 32
+    steps = 2 if args.smoke else 500
     for step in range(1, steps + 1):
         x, y = get_batch(train_data, block_size, batch, rng)
         logits = model(x)
@@ -150,7 +170,7 @@ def main():
     model.eval()
     with torch.no_grad():
         idx = torch.zeros((1, 1), dtype=torch.long)
-        for _ in range(200):
+        for _ in range(8 if args.smoke else 200):
             idx_cond = idx[:, -block_size:]
             logits, att = model(idx_cond, return_attn=True)
             probs = F.softmax(logits[:, -1, :], dim=-1)
@@ -161,6 +181,8 @@ def main():
     with torch.no_grad():
         x, _ = get_batch(train_data, block_size, 1, rng)
         _, att = model(x, return_attn=True)
+    if args.smoke:
+        print(f"attention shape: {tuple(att.shape)}")
     print("\n注意力矩阵（前 5x5，行=query，列=key，上三角应为 0）:")
     print(att[0, :5, :5].numpy().round(2))
 
