@@ -14,10 +14,10 @@ dependencies = [
     "pytest",
 ]
 
-[tool.setuptools]
-# This repository ships runnable study scripts, not importable application packages.
-# Keep editable installation focused on its declared runtime dependencies.
-packages = []
+[tool.setuptools.packages.find]
+# `scripts` is an intentionally package-less namespace used by the public fetcher.
+include = ["scripts*"]
+namespaces = true
 
 [tool.pytest.ini_options]
 pythonpath = ["code"]

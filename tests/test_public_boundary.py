@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_SUFFIXES = {".pdf", ".png", ".pt", ".pth", ".ckpt", ".pyc"}
@@ -102,6 +104,49 @@ def test_license_limits_mit_to_original_repository_content():
     assert "数据集" in license_text
     assert "不覆盖、也不授予" in license_text
     assert "不归本仓库所有" in license_text
+
+
+def test_editable_install_exposes_paper_fetcher_outside_repository(tmp_path):
+    """Guard against root-directory imports masking a broken editable artifact."""
+    environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from scripts.fetch_papers import load_catalog; print(load_catalog.__name__)",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "load_catalog"
+
+
+def test_ci_runs_python_311_pytest_and_all_offline_smokes():
+    """Guard the public CI contract against silently shrinking validation."""
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "actions/checkout@v4" in workflow
+    assert "actions/setup-python@v5" in workflow
+    assert 'python-version: "3.11"' in workflow
+    assert "- run: pytest -q" in workflow
+    for script in (
+        "code/resnet/plain_vs_residual.py",
+        "code/transformer/tiny_attention.py",
+        "code/ddpm/simple_ddpm.py",
+    ):
+        assert f"python {script} --smoke --offline" in workflow
+
+
+def test_reproducibility_docs_limit_output_directory_guarantee_to_explicit_commands():
+    """Keep default teaching-script output behavior distinct from CI guarantees."""
+    reproducibility = (ROOT / "docs/reproducibility.md").read_text(encoding="utf-8")
+
+    assert "README/CI 命令显式传入 `--output-dir`" in reproducibility
+    assert "默认教学行为" in reproducibility
 
 
 def test_text_files_do_not_expose_local_or_company_data():
