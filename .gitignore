@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pdf
+*.pt
+*.pth
+*.ckpt
+data/
+code/transformer/input.txt
+outputs/*
+!outputs/reference/
+!outputs/reference/**
