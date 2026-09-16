@@ -1,4 +1,6 @@
+import pytest
 import torch
+import transformer.tiny_attention as attention
 from transformer.tiny_attention import SingleHeadAttention, load_text, CharTokenizer
 
 
@@ -16,8 +18,15 @@ def test_attention_shape_and_causality():
     assert torch.allclose(att.sum(dim=-1), torch.ones(2, 5), atol=1e-5)
 
 
-def test_tokenizer_roundtrip():
-    text = load_text()
+def test_tokenizer_roundtrip_uses_offline_text(monkeypatch, tmp_path):
+    monkeypatch.setattr(attention, "CACHE", str(tmp_path / "input.txt"))
+
+    def fail_if_network_is_used(*args, **kwargs):
+        pytest.fail("ordinary unit tests must not access the network")
+
+    monkeypatch.setattr(attention.urllib.request, "urlretrieve", fail_if_network_is_used)
+
+    text = load_text(offline=True)
     tok = CharTokenizer(text)
     s = text[:50]
     assert tok.decode(tok.encode(s)) == s
