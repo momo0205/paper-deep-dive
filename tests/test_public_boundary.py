@@ -64,6 +64,16 @@ def test_generated_png_artifacts_are_ignored_by_git():
     assert result.returncode == 0
 
 
+def test_editable_install_metadata_is_ignored_by_git():
+    """Keep fresh editable-install metadata out of the public worktree."""
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", "paper_deep_dive.egg-info/PKG-INFO"],
+        cwd=ROOT,
+    )
+
+    assert result.returncode == 0
+
+
 def test_required_learning_material_is_present():
     present = {str(path.relative_to(ROOT)) for path in public_files()}
     assert REQUIRED_FILES <= present
