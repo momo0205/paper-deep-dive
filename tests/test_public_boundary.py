@@ -67,6 +67,43 @@ def test_required_learning_material_is_present():
     assert REQUIRED_FILES <= present
 
 
+def test_public_documentation_links_pinned_sources_and_offline_validation():
+    """Guard the clone-to-study contract against an incomplete public README."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    learning_loop_start = readme.index("## 6–9 周学习循环")
+    assert readme.index("为什么网络越深越难训练") < learning_loop_start
+    assert readme.index("为什么注意力能替代序列建模") < learning_loop_start
+    assert readme.index("为什么扩散模型能生成高质量样本") < learning_loop_start
+    assert "https://arxiv.org/abs/1512.03385v1" in readme
+    assert "https://arxiv.org/abs/1706.03762v7" in readme
+    assert "https://arxiv.org/abs/2006.11239v2" in readme
+    assert "PDF" in readme
+    assert "不再分发" in readme
+    assert "官方获取" in readme
+    assert "SHA-256" in readme
+    assert "python -m venv" in readme
+    assert "pip install -e ." in readme
+    assert "pytest -q" in readme
+    for script in (
+        "code/resnet/plain_vs_residual.py",
+        "code/transformer/tiny_attention.py",
+        "code/ddpm/simple_ddpm.py",
+    ):
+        assert f"python {script} --smoke --offline" in readme
+
+
+def test_license_limits_mit_to_original_repository_content():
+    """Guard against claiming ownership of the linked papers or datasets."""
+    license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+
+    assert "原创代码、文档与组织内容" in license_text
+    assert "论文" in license_text
+    assert "数据集" in license_text
+    assert "不覆盖、也不授予" in license_text
+    assert "不归本仓库所有" in license_text
+
+
 def test_text_files_do_not_expose_local_or_company_data():
     violations = []
     for path in public_files():
