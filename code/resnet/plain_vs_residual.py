@@ -161,6 +161,10 @@ def main():
                     else result["residual"][1])
     print(f"\n浅层梯度范数比 residual/plain = {g_res / (g_plain + 1e-30):.3e}")
     print("结论：plain 网络浅层梯度趋近于 0（梯度消失），残差连接保住了梯度通路。")
+    output_dir = args.output_dir or os.path.dirname(os.path.abspath(__file__))
+    os.makedirs(output_dir, exist_ok=True)
+    if args.output_dir:
+        os.environ["MPLCONFIGDIR"] = output_dir
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -175,10 +179,6 @@ def main():
         for a in ax:
             a.legend()
             a.grid(alpha=0.3)
-        output_dir = args.output_dir or os.path.dirname(os.path.abspath(__file__))
-        os.makedirs(output_dir, exist_ok=True)
-        if args.output_dir:
-            os.environ["MPLCONFIGDIR"] = output_dir
         out = os.path.join(output_dir, "output.png")
         fig.tight_layout()
         fig.savefig(out, dpi=120)

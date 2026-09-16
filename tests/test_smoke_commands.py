@@ -1,4 +1,5 @@
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -33,6 +34,13 @@ def _repository_snapshot():
     ],
 )
 def test_offline_smoke_command(script, marker, tmp_path):
+    external_mplconfig = tmp_path.parent / f"{tmp_path.name}-mplconfig"
+    external_mplconfig.mkdir()
+    environment = {
+        **os.environ,
+        "MPLCONFIGDIR": str(external_mplconfig),
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
     before = _repository_snapshot()
     result = subprocess.run(
         [
@@ -44,6 +52,7 @@ def test_offline_smoke_command(script, marker, tmp_path):
             str(tmp_path),
         ],
         cwd=ROOT,
+        env=environment,
         text=True,
         capture_output=True,
         timeout=90,
@@ -53,3 +62,6 @@ def test_offline_smoke_command(script, marker, tmp_path):
     assert result.returncode == 0, result.stderr
     assert marker in result.stdout
     assert after == before, "smoke command modified files outside --output-dir"
+    assert not any(external_mplconfig.rglob("*")), (
+        "smoke command wrote Matplotlib cache outside --output-dir"
+    )
